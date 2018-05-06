@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.royal.mapper.TeacherMapper">
+
+	<!-- 教师注册 insert -->
+	<insert id="registerTeacher" parameterType="com.royal.entity.Teacher"
+		useGeneratedKeys="true" keyProperty="tId">
+		insert into teacher(t_openid,
+		t_name, t_gender, t_school)
+		values(#{tOpenid}, #{tName}, #{tGender},
+		#{tSchool})
+	</insert>
+
+	<!-- 根据openid查询teacher -->
+	<select id="selectTeacherByOpenid" resultType="com.royal.entity.Teacher">
+		select * from
+		teacher
+		where t_openid = #{openid}
+	</select>
+
+	<!-- 根据教师id查询lesson -->
+	<select id="selectLessonByTId" resultType="com.royal.entity.Lesson">
+		select l.l_id,
+		l.l_name, l.l_numbers, s.l_id s_id, count(l.l_id) bind_numbers
+		from
+		teacher t, lesson l
+		left join stu2less s
+		on s.l_id = l.l_id
+		where t.t_openid = #{openid }
+		and l.t_id = t.t_id
+		group
+		by l.l_id
+	</select>
+
+	<!-- 根据教师id查询student -->
+	<select id="selectStudentByLId" resultType="com.royal.entity.Student">
+		select * from
+		stu2less, student
+		where l_id = #{lessonId }
+		and stu2less.s_number = student.s_number
+	</select>
+
+	<!-- 课程模块的增删改查 -->
+	<select id="selectLessonByLId" resultType="com.royal.entity.Lesson">
+		select * from lesson
+		where l_id = #{lessonId }
+	</select>
+
+	<insert id="insertLesson" parameterType="com.royal.entity.Lesson"
+		useGeneratedKeys="true" keyProperty="lId">
+		insert into lesson(l_name,
+		l_numbers, t_id)
+		values(#{lName}, #{lNumbers}, #{tId})
+	</insert>
+
+	<delete id="deleteLesson">
+		delete from lesson
+		where l_id = #{lessonId}
+	</delete>
+
+	<update id="updateLesson" parameterType="com.royal.entity.Lesson">
+		update lesson
+		set l_name = #{lName}, l_numbers = #{lNumbers}
+		where l_id = #{lId}
+	</update>
+
+	<update id="updateLessonState" parameterType="com.royal.entity.Lesson">
+		update lesson
+		set join_state = #{joinState}, bind_code = #{bindCode}
+		where l_id = #{lId}
+	</update>
+
+	<!-- 学生模块的增删查 -->
+	<select id="selectStudentBySId" resultType="com.royal.entity.Student">
+		select * from student
+		where s_number = #{studentId }
+	</select>
+
+	<insert id="bindStudent">
+		insert into stu2less(s_number, l_id)
+		values(#{studentId}, #{lessonId})
+	</insert>
+
+	<delete id="deleteStudent">
+		delete from stu2less
+		where s_number = #{studentId }
+		and l_id = #{lessonId }
+	</delete>
+
+	<!-- 根据课程id查询 记录(logging)表 -->
+	<select id="selectLoggingByLId" resultType="com.royal.entity.Logging">
+		select * from
+		logging, logdetail
+		where l_id = #{lessonId }
+		and logging.log_uuid = logdetail.log_uuid
+	</select>
+
+	<!-- 根据课程id查询 学生-课程(stu2lesson)表 -->
+	<select id="selectStu2LessByLId" resultType="com.royal.entity.Student">
+		select * from
+		stu2less
+		where l_id = #{lessonId }
+	</select>
+	
+	<select id="selectLoggingByLIdAndState" resultType="com.royal.entity.Logging">
+		select * from 
+		logging
+		where l_id = #{lessonId}
+		and log_state = 1;
+	</select>
+	
+	<update id="updateLogStateByLessonId">
+		update logging set log_state = 0
+		where l_id = #{lessonId}
+		and log_state = 1
+	</update>
+
+	<insert id="insertLogging" parameterType="com.royal.entity.Logging">
+		insert into
+		logging(log_uuid, l_id, latitude, longitude, altitude)
+		values(#{logUuid}, #{lId}, #{latitude}, #{longitude}, #{altitude})
+	</insert>
+
+	<select id="selectNotComeStudents" resultType="com.royal.entity.Student">
+		SELECT s.* FROM student s, stu2less l
+		WHERE s.s_number = l.s_number
+		AND l.l_id = (
+			SELECT ll.l_id FROM logging ll
+			WHERE ll.log_uuid = #{uuid}
+		)
+		AND s.s_number NOT IN (
+			SELECT s.s_number FROM student s, logging l, logdetail d
+			WHERE l.log_uuid = d.log_uuid
+			AND d.s_number = s.s_number
+			AND l.log_uuid = #{uuid}
+		)
+	</select>
+	
+	<update id="updateLogStateByUuid">
+		update logging set log_state = 0
+		where log_uuid = #{uuid}
+	</update>
+	
+	<insert id="insertLogDetail" parameterType="com.royal.entity.Logging">
+		insert logdetail (log_uuid, s_number, s_state)
+		values(#{logUuid}, #{sNumber}, #{sState})
+	</insert>
+	
+	<select id="selectAllLoggingByLId" resultType="com.royal.entity.Logging">
+		select * from logging
+		where l_id = #{lessonId}
+		order by option_time desc 
+	</select>
+	
+	<select id="selectComeStudent" resultType="com.royal.entity.Student">
+		select * from logdetail l, student s
+		where l.log_uuid = #{uuid}
+		and l.s_number = s.s_number
+		order by l.s_state asc
+	</select>
+	
+	<delete id="deleteLogging">
+		delete from logging 
+		where log_uuid = #{uuid} 
+		and l_id = #{lessonId}
+	</delete>
+</mapper>
